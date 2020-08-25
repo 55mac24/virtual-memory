@@ -11,18 +11,11 @@ pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t broadcast = PTHREAD_COND_INITIALIZER;
 
 /*
-Function responsible for allocating and setting your physical memory 
+Function responsible for allocating and setting physical memory 
 */
 
 void set_physical_mem() {
 
-    //Allocate physical memory using mmap or malloc; this is the total size of
-    //your memory you are simulating
-
-    
-    //HINT: Also calculate the number of physical and virtual pages and allocate
-    //virtual and physical bitmaps and initialize them
-	
 	int offset = findLogBaseTwo(PGSIZE);	
 	int innerPageBits = (int)((32 - offset) + findLogBaseTwo(ENTRYSIZE)) - offset;
 	int outerPageBits = 32 - innerPageBits - offset;
@@ -62,9 +55,6 @@ The function takes a virtual address and page directories starting address and
 performs translation to return the physical address
 */
 pte_t * translate(pde_t *pgdir, void *va) {
-    //HINT: Get the Page directory index (1st level) Then get the
-    //2nd-level-page table index using the virtual address.  Using the page
-    //directory index and page table index get the physical address
 
 	int offset = findLogBaseTwo(PGSIZE);	
 	int innerPageBits = (int)((32 - offset) + findLogBaseTwo(ENTRYSIZE)) - offset;
@@ -98,10 +88,6 @@ virtual address is not present, then a new entry will be added
 int
 page_map(pde_t *pgdir, void *va, void *pa)
 {
-
-    /*HINT: Similar to translate(), find the page directory (1st level)
-    and page table (2nd-level) indices. If no mapping exists, set the
-    virtual to physical mapping */
 
 	int offset = findLogBaseTwo(PGSIZE);
 	int innerPageBits = (int)((32 - offset) + findLogBaseTwo(ENTRYSIZE)) - offset;
@@ -178,13 +164,6 @@ void *get_next_avail(int num_pages) {
 and used by the benchmark
 */
 void *a_malloc(unsigned int num_bytes) {
-
-    //HINT: If the physical memory is not yet initialized, then allocate and initialize.
-
-   /* HINT: If the page directory is not initialized, then initialize the
-   page directory. Next, using get_next_avail(), check if there are free pages. If
-   free pages are available, set the bitmaps and map a new page. Note, you will 
-   have to mark which physical pages are used. */
 
 	pthread_mutex_lock(&lock); 
 	writers++;
@@ -341,77 +320,68 @@ void a_free(void *va, int size) {
 
 void put_value(void *va, void *val, int size) {
 
-    /* HINT: Using the virtual address and translate(), find the physical page. Copy
-       the contents of "val" to a physical page. NOTE: The "size" value can be larger
-       than one page. Therefore, you may have to find multiple pages using translate() //0001 0000
-       function.*/
 		
-		//printf("Physical Address: %p | VPN: %x\n",tlb_store[vpn].ppn, vpn);
+	//printf("Physical Address: %p | VPN: %x\n",tlb_store[vpn].ppn, vpn);
 
-		pthread_mutex_lock(&lock); 
-		writers++;
-		while(reading || writing){
+	pthread_mutex_lock(&lock); 
+	writers++;
+	while(reading || writing){
 
-			pthread_cond_wait(&broadcast,&lock);
-			
-		}
-		writing++;
-		pthread_mutex_unlock(&lock);
-	
-		int pageOffset = findLogBaseTwo(PGSIZE);
-	
-		unsigned long vpn = (unsigned long)va;
-		unsigned long offset = vpn & ~(1 << pageOffset);
-	
-		pte_t *pa;
-		pa = translate(NULL, va) + offset;		
-		*pa = *((pte_t *)val);
-		va = va + size;	
+		pthread_cond_wait(&broadcast,&lock);
 
-		pthread_mutex_lock(&lock);
-		writing--;
-		writers--;
-		pthread_cond_broadcast(&broadcast);
-		pthread_mutex_unlock(&lock);
+	}
+	writing++;
+	pthread_mutex_unlock(&lock);
+
+	int pageOffset = findLogBaseTwo(PGSIZE);
+
+	unsigned long vpn = (unsigned long)va;
+	unsigned long offset = vpn & ~(1 << pageOffset);
+
+	pte_t *pa;
+	pa = translate(NULL, va) + offset;		
+	*pa = *((pte_t *)val);
+	va = va + size;	
+
+	pthread_mutex_lock(&lock);
+	writing--;
+	writers--;
+	pthread_cond_broadcast(&broadcast);
+	pthread_mutex_unlock(&lock);
 
 }
 
 
 /*Given a virtual address, this function copies the contents of the page to val*/
 void get_value(void *va, void *val, int size) {
-
-    /* HINT: put the values pointed to by "va" inside the physical memory at given
-    "val" address. Assume you can access "val" directly by derefencing them.
-    If you are implementing TLB,  always check first the presence of translation
-    in TLB before proceeding forward */
 	
-		pthread_mutex_lock(&lock); 
-		writers++;
-		while(reading || writing){
+	pthread_mutex_lock(&lock); 
+	writers++;
+	while(reading || writing){
 
-			pthread_cond_wait(&broadcast,&lock);
-			
-		}
-		writing++;
-		pthread_mutex_unlock(&lock);
+		pthread_cond_wait(&broadcast,&lock);
 
-		int pageOffset = findLogBaseTwo(PGSIZE);
+	}
+	writing++;
+	pthread_mutex_unlock(&lock);
 
-		unsigned long vpn = (unsigned long)va;
-		unsigned long offset = vpn & ~(1 << pageOffset);
+	int pageOffset = findLogBaseTwo(PGSIZE);
 
-		pte_t *pa;
-		pa = translate(NULL, va) + offset;
-		*((pte_t *)val) = *pa;
-		va = va + size;	
-	
-		pthread_mutex_lock(&lock);
-		writing--;
-		writers--;
-		pthread_cond_broadcast(&broadcast);
-		pthread_mutex_unlock(&lock);
+	unsigned long vpn = (unsigned long)va;
+	unsigned long offset = vpn & ~(1 << pageOffset);
 
-		//printf("{GET - VALUE - 0x%x} Virtual Address: %p | Physical Address: %p | Value = %lu\n",va,pa,*pa);	
+	pte_t *pa;
+	pa = translate(NULL, va) + offset;
+	*((pte_t *)val) = *pa;
+	va = va + size;	
+
+	pthread_mutex_lock(&lock);
+	writing--;
+	writers--;
+	pthread_cond_broadcast(&broadcast);
+	pthread_mutex_unlock(&lock);
+
+	//printf("{GET - VALUE - 0x%x} Virtual Address: %p | Physical Address: %p | Value = %lu\n",va,pa,*pa);	
 }
 
 /*
@@ -420,12 +390,6 @@ argument representing the number of rows and columns. After performing matrix
 multiplication, copy the result to answer.
 */
 void mat_mult(void *mat1, void *mat2, int size, void *answer) {
-
-    /* Hint: You will index as [i * size + j] where  "i, j" are the indices of the
-    matrix accessed. Similar to the code in test.c, you will use get_value() to
-    load each element and perform multiplication. Take a look at test.c! In addition to 
-    getting the values from two matrices, you will perform multiplication and 
-    store the result to the "answer array"*/
 
 	//printf("{Matrix - Multiply} Address A: %p | Address: %p\n", mat1, mat2);
 
